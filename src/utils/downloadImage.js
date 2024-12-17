@@ -8,13 +8,8 @@ function base64ToBlob(base64, mimeType) {
   return new Blob([byteArray], { type: mimeType });
 }
 
-const DownloadImage = (editor ) => {
-  console.log('saveimage 실행');
-  const dataURL = editor.toDataURL({
-    format: 'png',
-    quality: 1,
-    multiplier: 1,  //fixme 원래 10
-  });
+const downloadImage = ( dataURL ) => {
+  console.log('save image 실행');
 
   const [mimeType, base64Data] = dataURL.split(';base64,');
 // Blob 생성
@@ -34,4 +29,4 @@ const DownloadImage = (editor ) => {
   document.body.removeChild(link);
 }
 
-export default DownloadImage;
+export default downloadImage;

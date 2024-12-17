@@ -54,7 +54,7 @@ const handleSubmit = async ({ text, style, numImages}) => {
   return response.data.artifacts.map((artifact) => `data:image/png;base64,${artifact.base64}`);
 };
 
-// 첫 번째로 실행되는 함수이자, 외부로 노출하는 유일한 api
+// 첫 번째로 실행되는 함수이자, 외부로 노출하는 유일한 services
 export const requestAIImageGeneration = async ({ text, style, numImages}) => {
   try {
     const translatedText = await translatePrompt(text);
@@ -85,5 +85,37 @@ export const translatePrompt = async (prompt) => {
     return null;
   }
 }
+
+// Stability AI 호출 함수
+export const callStabilityAI = async (translatedText) => {
+  const formData = new FormData();
+  formData.append('init_image', attachedFile);
+  formData.append('init_image_mode', 'IMAGE_STRENGTH');
+  formData.append('image_strength', 0.35);
+  formData.append('text_prompts[0][text]', translatedText);
+  formData.append('cfg_scale', 7);
+  formData.append('samples', 1);
+  formData.append('steps', 30);
+
+  try {
+    const response = await fetch(`${apiHost}/v1/generation/stable-diffusion-v1-6/image-to-image`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`Non-200 response: ${await response.text()}`);
+
+    const responseJSON = await response.json();
+    const generatedImages = responseJSON.artifacts.map((image) => `data:image/png;base64,${image.base64}`);
+
+    return generatedImages;
+  } catch (error) {
+    console.error("Stability AI 요청 오류:", error);
+  }
+};
 
 export default requestAIImageGeneration;

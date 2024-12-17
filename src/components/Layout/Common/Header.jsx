@@ -26,7 +26,7 @@ export default function Header() {
           문의
         </a>
         <a
-          href="#로그인"
+          href="/login"
           className="border border-white rounded-full px-4 py-2 hover:bg-white hover:text-black transition"
         >
           로그인

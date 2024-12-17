@@ -1,4 +1,3 @@
-
 import Header from "../components/Layout/Common/Header.jsx";
 import Main from "../components/Main/Main";
 import Footer from "../components/Layout/Footer.jsx";

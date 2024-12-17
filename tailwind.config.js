@@ -18,7 +18,10 @@ export default {
         },
         '.bg-edit-gray': {
           'backgroundColor': '#151515',
-        }
+        },
+        '.m-t-center': {
+          'margin': 'auto 0',
+        },
       });
     }),
   ],

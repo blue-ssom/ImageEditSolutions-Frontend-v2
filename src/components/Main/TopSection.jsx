@@ -3,6 +3,9 @@ import bridLeft from '/images/home/bridLeft.png';
 import { NavLink } from "react-router-dom";
 import ImageUploadBox from './ImageUploadBox'
 import ImageUploadButton from './ImageUploadButton';
+import MakeRoomContainer from './MakeRoomContainer.jsx';
+import JoinRoomContainer from './JoinRoomContainer.jsx';
+import { useState } from 'react';
 
 export default function TopSection() {
 
@@ -67,6 +70,7 @@ export default function TopSection() {
           </NavLink>
         </div>
       </div>
+          <MakeRoomContainer /> :
     </section>
   );
 }
