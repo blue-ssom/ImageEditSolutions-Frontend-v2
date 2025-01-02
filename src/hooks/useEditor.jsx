@@ -1,59 +1,20 @@
-import { useEffect, useState } from 'react';
+import React from 'react'
+import 'tui-image-editor/dist/tui-image-editor.css';
+import ImageEditor from '@toast-ui/react-image-editor';
 import * as _ from "lodash";
 
-const modelProp = {
-  aCoords:null, //Text
-  lineCoords:null,
-  angle:null,
-  fontSize:null,
-  fontWeight:null,
-  fill:null,
-  fontStyle:null,
-  height:null,
-  left:null,
-  originX:null,
-  originY:null,
-  origins:null,
-  value:null,
-  rotatingPointOffset:null,
-  text:null,
-  textLines:null,
-  textDecoration:null,
-  top:null,
-  underline:null,
-  width:null,
-  hasBorders:null, //Shape
-  rx:null,
-  ry:null,
-  type:null,
-  scaleX:null,
-  scaleY:null,
-  startPoint:null,
-  stroke:null,
-  strokeWidth:null,
-  path:null,
-  pathOffset:null,
-  position:null,
-  lockSkewingX:null,
-  lockSkewingY:null,
+const myTheme = {
+  // Theme object to extends default dark theme.
 };
+let editorInstance;
+function Editor() {
+  const  editorRef = React.createRef();
+  const [editor,setEditor]=React.useState("")
+  const objectsArr = []
 
 
-const useEditor = (ref) => {
-  const [editorInstance, setEditorInstance] = useState(null);
-  const objectsArr = [];
+  async function addLayer(layer){
 
-  const sendToInstance = () => {
-    let asyncAddLayout = [];
-
-    objectsArr.forEach(async (el)=>{
-      setTimeout(async () => {
-        asyncAddLayout.push( await addLayer(el))
-      }, 100);
-    })
-  }
-
-  const addLayer = async (layer) => {
     console.log("addLayer [START]", layer.aCoords);
 
     let options = {
@@ -141,27 +102,145 @@ const useEditor = (ref) => {
       default:
         console.error("addLayer type is not managed", layer, layer.type);
     }
+
   }
 
-  const setFilteredTUIObject = () => {
-    const editorObjects = editorInstance._graphics.getCanvas()._objects;
+
+  function setFilteredTUIObject(editorObjects){
+
+
+    //Properties pick
+    var modelProp = {
+      aCoords:null, //Text
+      lineCoords:null,
+      angle:null,
+      fontSize:null,
+      fontWeight:null,
+      fill:null,
+      fontStyle:null,
+      height:null,
+      left:null,
+      originX:null,
+      originY:null,
+      origins:null,
+      value:null,
+      rotatingPointOffset:null,
+      text:null,
+      textLines:null,
+      textDecoration:null,
+      top:null,
+      underline:null,
+      width:null,
+      hasBorders:null, //Shape
+      rx:null,
+      ry:null,
+      type:null,
+      scaleX:null,
+      scaleY:null,
+      startPoint:null,
+      stroke:null,
+      strokeWidth:null,
+      path:null,
+      pathOffset:null,
+      position:null,
+      lockSkewingX:null,
+      lockSkewingY:null,
+    };
 
     for (let i = 0; i < editorObjects.length; i++) {
+
       if(editorObjects[i].type != "path" && editorObjects[i].type != "line"){
         //Strip off not needed properties like "_", "__", canvas, mouseMoveHandler
         let filteredProp = _.pick(editorObjects[i], _.keys(modelProp));
         objectsArr.push(filteredProp);
-        console.log('obj',objectsArr)
       }
+
+
+
     }
+
   }
+  function handleClickButton()  {
+    setFilteredTUIObject(editorInstance._graphics.getCanvas()._objects);
 
-  useEffect(() => {
-    console.log(ref);
-    if(ref.current) setEditorInstance(ref.current);
-  }, []);
 
-  return {editorInstance, setFilteredTUIObject, addLayer, sendToInstance}
+  };
+  function handleClickButton1()  {
+    console.log(editorInstance._graphics.getObjectProperties(3));
+
+
+  };
+  function objectAdded(props){
+    console.log(props)
+
+  }
+  React.useEffect(()=>{
+    editorInstance = editorRef.current.getInstance();
+    setEditor(editorRef.current.getInstance())
+    // editorInstance.loadImageFromURL('https://image.shutterstock.com/image-photo/mountains-under-mist-morning-amazing-600w-1725825019.jpg', 'lena')
+  })
+
+  React.useEffect(()=>{
+    if(editorInstance){
+      editorInstance.on('redoStackChanged',(props)=>console.log(props,"redoStackChanged"))
+      editorInstance.on('objectAdded',(props)=>console.log(props,"objectAdded"))
+      editorInstance.on('undoStackChanged',(props)=>console.log(props,"undoStackChanged"))
+      editorInstance.on('addText',(props)=>console.log(props,"addText"))
+      // editorInstance.on('textEditing',(props)=>console.log(props,"addText"))
+      console.log(editorInstance._initHistory())
+      // editorInstance.on('objectMoved',(props)=>console.log(props,"addText"))
+
+    }
+  })
+  try{
+
+
+    return (
+      <div>
+
+        <ImageEditor
+          ref={editorRef}
+          includeUI={{
+            objectAdded,
+            loadImage: {
+              path: 'https://image.shutterstock.com/image-photo/mountains-under-mist-morning-amazing-600w-1725825019.jpg',
+              name: 'SampleImage'
+            },
+            theme: myTheme,
+            menu: ['shape', 'filter','text','icon','crop',],
+            initMenu: 'filter',
+            uiSize: {
+              width: '1000px',
+              height: '700px',
+            },
+            menuBarPosition: 'bottom',
+          }}
+          cssMaxHeight={500}
+          cssMaxWidth={700}
+          selectionStyle={{
+            cornerSize: 20,
+            rotatingPointOffset: 70,
+          }}
+          usageStatistics={true}
+        />
+        <button onClick={handleClickButton}>Save all</button>
+        <button onClick={()=>{
+
+          let asyncAddLayout = [];
+
+          objectsArr.forEach(async (el)=>{
+            setTimeout(async () => {
+              asyncAddLayout.push( await addLayer(el))
+            }, 100);
+          })
+        }}>Re paste all</button>
+      </div>
+    )
+  }catch(e){
+    console.log(e);
+    window.location.reload()
+
+  }
 }
 
-export default useEditor;
+export default Editor
