@@ -85,6 +85,7 @@ export const translatePrompt = async (prompt) => {
     return null;
   }
 }
+const apiHost = 'https://api.stability.ai';
 
 // Stability AI 호출 함수
 export const callStabilityAI = async (translatedText) => {

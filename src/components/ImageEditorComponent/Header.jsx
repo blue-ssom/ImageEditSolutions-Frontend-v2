@@ -14,7 +14,9 @@ const   Header = ({ setIsLoadModalOpen, setIsSaveModalOpen, editor }) => {
     const uploadedImage = URL.createObjectURL(file);
 
     if (!editor) throw Error('Editor를 가져올 수 없음');
-    await editor.imageEditorInst.loadImageFromURL(uploadedImage, 'downloadProjectImage');
+
+    if (editor.imageEditorInst) await editor.imageEditorInst.loadImageFromURL(uploadedImage, 'downloadProjectImage');
+    if (editor) await editor.loadImageFromURL(uploadedImage, 'downloadProjectImage');
   }
 
   const handleClickDownloadImage = () => {
