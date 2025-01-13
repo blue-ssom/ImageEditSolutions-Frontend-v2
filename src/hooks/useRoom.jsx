@@ -31,13 +31,7 @@ export const RoomProvider = ({ children }) => {
 
   // 방 참가 함수
   const joinRoom = async (roomId) => {
-    console.log("Attempting to join room with ID:", roomId);
-    try {
-      await axiosInstance.patch('/room', { roomId });
-      setRoomId(roomId);
-    } catch (error) {
-      console.error("방 참가 실패", error);
-    }
+    console.log("사용자가 방 번호 ", roomId, " 참가");
   };
 
   return (
