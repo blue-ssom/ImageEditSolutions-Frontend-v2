@@ -29,8 +29,8 @@ export const RoomProvider = ({ children }) => {
     }
   };
 
-  // 방 참가 함수
   const joinRoom = async (roomId) => {
+    // [ 수정 / 작성자 : YSM ] 방 참가 함수 axios 호출 제거
     console.log("사용자가 방 번호 ", roomId, " 참가");
   };
 
