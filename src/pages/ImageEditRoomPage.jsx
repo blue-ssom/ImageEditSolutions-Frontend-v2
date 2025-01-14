@@ -9,11 +9,10 @@ import Header from '../components/ImageEditorComponent/Header';
 import SockJS from 'sockjs-client';
 import { Stomp } from '@stomp/stompjs';
 
-// [수정] removeNullValues 함수 : 객체에서 null이나 undefined 값을 제거 - 작성자: YSM
 const removeNullValues = (obj) => Object.fromEntries(Object.entries(obj).filter(([_, value]) => value != null));
 
 const ImageEditRoomPage = () => {
-  const { roomId } = useParams(); // [수정] URL에서 방 ID를 추출 - 작성자: YSM
+  const { roomId } = useParams();
   const navigate = useNavigate();
 
   const containerRef = useRef(null);
@@ -28,8 +27,7 @@ const ImageEditRoomPage = () => {
 
   const isRemoteChangeRef = useRef(false);
 
-  const [drawings, setDrawings] = useState([]); // [수정] drawings 상태와 setDrawings 함수 선언 - 작성자: YSM
-  
+  const [drawings, setDrawings] = useState([]); // [ 추가/작성자:YSM ] drawings 상태와 setDrawings 함수 선언
 
   useEffect(function initTuiInstance() {
     const editor = new ImageEditor(containerRef.current, {
@@ -58,157 +56,144 @@ const ImageEditRoomPage = () => {
     }
   }, []);
 
-  // [수정] WebSocket 연결 - 작성자: YSM
   useEffect(() => {
-     // 이미지 URL 상태 선언
     const authToken = localStorage.getItem('accessToken');
 
     const connectWebSocket = () => {
       const socketFactory = () => new SockJS('http://localhost:8080/ws');
       const client = Stomp.over(socketFactory);
 
-      // [수정] roomId 필드 추가 - 작성자: YSM
-      client.connect({ Authorization: `Bearer ${authToken}`, roomId },() => {
-        setStompClient(client);
-        setConnected(true);
-        console.log("WebSocket connected");
+      client.connect(
+        { Authorization: `Bearer ${authToken}`, roomId },  // [ 추가/작성자:YSM ] 방 ID 추가하여 헤더로 전달
+        () => {
+          setStompClient(client);
+          setConnected(true);
+          console.log("WebSocket connected");
 
-        // [수정] 2. 실시간 데이터 구독 - 작성자: YSM
-        client.subscribe(`/topic/room/${roomId}`, (message) => {
-          try{
-            const data = JSON.parse(message.body);
-            console.log("실시간 데이터");
-            console.log(`[WebSocket 경로: /topic/room/${roomId}] JSON으로 파싱한 데이터 : `, data); 
+          // [ 수정/작성자:YSM ] 1. 초기 데이터 구독
+          client.subscribe('/user/queue/initial', (message) => {
+            try {
+              const data = JSON.parse(message.body);
+              console.log("[WebSocket 경로: /user/queue/initial] 초기 데이터 수신");
 
-            isRemoteChangeRef.current = true; // 원격 변경 표시
+              setDrawings(data); // [ 추가/작성자:YSM ] drawings 상태 업데이트
+              
+              isRemoteChangeRef.current = true; // [ 추가/작성자:YSM ] 다른 사용자가 그린 그림이나 서버에서 업데이트된 데이터를 반영 중
 
-              // data.object 또는 data.objects가 배열이 아니면 배열로 감싸기
+              // [ 수정/작성자:YSM ] data 배열의 각 항목을 순회하며 원격에서 받은 각 그림 데이터를 화면에 적용
+              data.forEach((drawing) => {
+                applyRemoteEdit(drawing);
+              });
+
+              isRemoteChangeRef.current = false;
+            } catch (error) {
+              console.error("[WebSocket 경로: /user/queue/initial] JSON 파싱 실패 :", error);
+            }
+          });
+
+          // [ 수정/작성자:YSM ] 2. 실시간 데이터 구독
+          client.subscribe(`/topic/room/${roomId}`, (message) => {
+            try{
+              const data = JSON.parse(message.body);
+              console.log(`[WebSocket 경로: /topic/room/${roomId}] 실시간 데이터 수신`);
+
+              isRemoteChangeRef.current = true;
+
+              // [ 추가/작성자:YSM ] data.object 또는 data.objects가 배열이 아니면 배열로 감싸기
               const objects = Array.isArray(data.object) ? data.object : data.object ? [data.object] : [];
               const objectsFromData = Array.isArray(data.objects) ? data.objects : data.objects ? [data.objects] : [];
 
-              // 유효한 객체들만 추가
+              // [ 추가/작성자:YSM ] 이전 상태(prevDrawings)와 새로운 객체들(objects 및 objectsFromData에서 undefined를 제외한 값들)을 결합하여 새로운 상태로 설정
               setDrawings((prevDrawings) => [
                 ...prevDrawings,
                 ...objects.filter(item => item !== undefined),
                 ...objectsFromData.filter(item => item !== undefined)
               ]);
 
-            applyRemoteEdit(data); // [수정] 받은 데이터를 화면에 반영 - 작성자: YSM
-            isRemoteChangeRef.current = false; // 처리 후 해제
-          } catch (error) {
-            console.error(`[WebSocket 경로: /topic/room/${roomId}] JSON 파싱 실패 : `, error)
-          }
-        });
+              applyRemoteEdit(data);
 
-        
-        // [수정] 1. 초기 데이터 구독 - 작성자: YSM
-        client.subscribe('/user/queue/initial', (message) => {
-          try {
-            const data = JSON.parse(message.body); // [수정] 서버에서 받은 데이터 - 작성자: YSM
-            console.log("초기 데이터");
-            console.log("[WebSocket 경로: /user/queue/initial] 파싱된 데이터 : ", data); 
-            // [수정] 초기 상태를 저장하고 렌더링 - 작성자: YSM
-            setDrawings(data); // [수정] 상태로 저장 - 작성자: YSM
-            data.forEach(drawing => applyRemoteEdit(drawing)); // [수정] 데이터를 캔버스에 적용하는 로직을 추가 - 작성자: YSM
-            // applyRemoteEdit(data); // [수정] 데이터를 캔버스에 적용하는 로직을 추가 - 작성자: YSM
-          } catch (error) {
-            console.error("[WebSocket 경로: /user/queue/initial] JSON 파싱 실패 :", error);
-          }
-        });
-        
-        // [수정] 3. 방 참여 요청 - 작성자: YSM
-        client.send(`/app/room/${roomId}/join`);
-        console.log('방 참여 요청 전송:', `/app/room/${roomId}/join`);
+              isRemoteChangeRef.current = false;
+            } catch (error) {
+              console.error(`[WebSocket 경로: /topic/room/${roomId}] JSON 파싱 실패 : `, error)
+            }
+          });
+
+          // [ 추가/작성자:YSM ] 3. 방 참여 요청
+          client.send(`/app/room/${roomId}/join`);
+          console.log(`[WebSocket 경로: /topic/room/${roomId}] 방 참여 요청 전송`);
         }, (error) => {
-          console.error("socket 연결 실패", error);
-          setTimeout(connectWebSocket, 1000); // 1초 후 재연결 시도
+          console.error("WebSocket연결 실패", error);
+          setTimeout(connectWebSocket, 1000);
         }
       );
     };
 
-    connectWebSocket();
+    connectWebSocket(); 
 
     return () => {
       if (stompClient) stompClient.disconnect();
       editorInstance.destroy();
     };
+  }, [roomId]); // [ 추가/작성자:YSM ] roomId 변경 시에만 재연결
 
-  }, [roomId]);
-
-
-
-   // [수정] 상태 변경 시 로그 출력 - 작성자: YSM
-   useEffect(() => {
-    console.log("현재 drawings 상태:", drawings); // 상태가 업데이트될 때마다 실행
+  // [ 추가/작성자:YSM ] drawings 상태가 변경될 때마다 새로운 상태를 콘솔에 출력
+  useEffect(() => {
+    console.log("현재 drawings 상태:", drawings); 
   }, [drawings]);
 
-  // 이벤트 등록
+  // [ 설명/작성자:YSM ] 이벤트 등록
   useEffect(() => {
     if (connected && editorInstance) {
       const canvas = editorInstance._graphics.getCanvas();
 
       const onObjectAdded = (event) => {
+        console.log("onObjectAdded 이벤트 발생");
         if (!isRemoteChangeRef.current && event.target.type === 'path') {
-          console.log('added event 발생');
           handleObjectEvent(event, 'objectAdded');
+        } else {
+          console.log('onObjectAdded 이벤트 무시 - isRemoteChangeRef 조건 불만족 또는 type이 path가 아님');
         }
       };
 
-      // const onObjectCleared = (event) => {
-      //   if (!isRemoteChangeRef.current) {
-      //     console.log('selection:cleared');
-      //     handleObjectEvent(event, 'objectModified');
-      //   }
-      // };
+      // [ 설명/작성자:YSM ] canvas에 이벤트 리스너와 핸들러 등록
+      canvas.on("object:added", onObjectAdded);
 
-      // 객체 수정 이벤트 처리
-      const onObjectModified = (event) => {
-        if (!isRemoteChangeRef.current) {
-            console.log('객체 수정 이벤트 발생');
-            handleObjectEvent(event, 'objectModified');
-        }
-    };
-
-      // canvas에 이벤트 리스너와 핸들러 등록.
-      canvas.on('object:added', onObjectAdded);
-      // canvas.on('selection:cleared', onObjectCleared);
-      canvas.on('object:modified', onObjectModified); // 객체 수정 이벤트
-
-
-      // Clean up 이벤트 리스너
       return () => {
-        canvas.off('object:added', onObjectAdded);
-        canvas.off('object:modified', onObjectModified);
+        canvas.off("object:added", onObjectAdded); // [ 설명/작성자:YSM ] "object:added" 이벤트에 대해 등록된 onObjectAdded 함수 리스너를 제거
       };
+    } else {
+      console.log("connected가 false이거나 editorInstance가 존재하지 않음");
     }
-  }, [connected, editorInstance]);
+  }, [connected, editorInstance]); // [추가/작성자: YSM] connected나 editorInstance 상태가 변경될 때마다 실행
 
-  // 객체 이벤트 발생 시 WebSocket으로 전송
+  // [ 설명/작성자:YSM ] 객체 이벤트 발생 시 WebSocket으로 전송
   const handleObjectEvent = (event, action) => {
     if (!stompClient || !connected) {
-      console.warn("WebSocket client is not connected or stompClient is null");
+      console.warn("WebSocket client가 연결되지 않았거나 stompClient가 null");
       return;
     }
-    console.log('handleObjectEvent event: ', event);
 
-    const object = event.target || event.deselected[0];// 객체가 완성되지 않으면 해당 정보가 없음.
+    const object = event.target || event.deselected[0];
     console.log('현재 object 정보', object);
 
     if (!object || !object.type) {
-      console.warn("Invalid object or type is undefined");
-      return; // object 또는 type이 없으면 함수 종료 - mouse move 시 socket send 방지
+      console.warn("유효하지 않은 object 또는 type이 undefined");
+      return;
     }
-
+    
+    // [ 추가/작성자:YSM ] 랜덤 값을 생성하여 고유한 ID를 반환하는 함수
     function generateUniqueId() {
-      return Math.random().toString(36).substring(2, 8); // 6자리 고유 ID
+      const id = Math.random().toString(36).substring(2, 8);
+      return id;
     }
 
     let objectData;
     switch (action) {
       case 'objectAdded':
-        // 객체 추가 시
+        console.log("객체 추가 이벤트 처리 중...");
+
         objectData = {
-          clientId: generateUniqueId(), // 고유 식별자 생성
+          clientId: generateUniqueId(), // [ 추가/작성자:YSM ] 고유 식별자 생성
           type: object.type,
           left: object.left,
           top: object.top,
@@ -231,11 +216,15 @@ const ImageEditRoomPage = () => {
           lineCoords: object.lineCoords,
           path: object.type === 'path' ? object.toSVG() : null,
         };
+        // [ 추가/작성자:YSM ] drawing 배열이 비어있을 경우 첫 번째 그림 데이터를 추가하는 로직
+        if (drawings.length === 0) {
+          console.log("drawing 배열이 비어있으면 첫 번째 그림이므로 추가")
+          setDrawings([removeNullValues(objectData)]);
+        } 
         console.log('객체 추가 데이터:', removeNullValues(objectData));
         break;
 
       case 'objectModified':
-        // 객체 수정 시
         objectData = {
           clientId: object.clientId,
           type: object.type,
@@ -260,50 +249,50 @@ const ImageEditRoomPage = () => {
           lineCoords: object.lineCoords,
           path: object.type === 'path' ? object.toSVG() : null,
         };
-        console.log('객체 수정 데이터:', objectData);
         break;
     
       default:
         console.warn('지원되지 않는 액션:', action);
-        return; // 처리 중단
+        return; 
     }
 
     sendEdit(action, removeNullValues(objectData));
   };
 
+  // [ 설명/작성자:YSM ] 편집 작업을 서버로 전송
   const sendEdit = (action, payload) => {
-    console.log('sendEdit 실행');
-    if (stompClient && connected) {
-      try {
-        stompClient.send(`/app/room/${roomId}/draw`, {}, JSON.stringify({
-          action,
-          objects: [payload],
-        }));
-        console.log("Sending edit action:", action, "Payload:", payload);
-      } catch (error) {
-        console.error("Error sending edit action:", error);
-      }
-    } else {
-      console.warn("WebSocket is not connected, cannot send edit action");
+    if (!stompClient || !connected || !action || !payload) {
+      console.warn('stompClient가 없거나 연결되지 않은 경우, action 또는 payload가 없음');
+      return;
+    }
+
+    try {
+      stompClient.send(`/app/room/${roomId}/draw`, {}, JSON.stringify({
+        action,
+        objects: [payload],
+      }));
+      console.log("sendEdit 작업 전송:", action, "Payload:", payload);
+    } catch (error) {
+      console.error("sendEdit 작업 전송 중 오류 발생:", error);
     }
   };
 
-// [수정] 실시간 변경 사항 반영 - 작성자 : YSM
+  // [ 수정/작성자:YSM ] 서버에서 받은 데이터를 캔버스에 반영
   const applyRemoteEdit = async (data) => {
     const editor = editorRef.current;
+
     if (!editor || !editor._graphics) {
-      console.error("Editor reference is invalid or not initialized.");
+      console.error(" editor 또는 _graphics가 없음음");
       return;
     }
-    const canvas = editor._graphics.getCanvas();
-    console.log('Full data received:', data);
 
-    // [수정] 데이터 구조 분해 및 기본값 설정 로직 추가 - 작성자: YSM
+    const canvas = editor._graphics.getCanvas();
+
+    // [ 수정/작성자:YS M] 데이터 구조 분해 및 기본값 설정 로직 추가
     const { action, objects = data.object || [] } = data;
 
-    // [수정] 배열 여부와 길이를 검증하는 로직 추가 - 작성자: YSM
     if (!Array.isArray(objects) || objects.length === 0) {
-        console.warn('No objects to apply or invalid data');
+        console.warn('적용할 객체가 없거나 잘못된 데이터입니다.');
         return;
     }
 
@@ -311,7 +300,6 @@ const ImageEditRoomPage = () => {
     console.log('현재 처리 중인 데이터:', objectData);
 
     let object;
-
     try {
       switch (objectData.type) {
         case 'rect':
@@ -339,22 +327,17 @@ const ImageEditRoomPage = () => {
               canvas.add(object);
               canvas.renderAll();
             });
-            return; // 비동기 처리를 위해 리턴
+            return; 
           } else {
-            console.warn("Invalid path data:", objectData.path);
+            console.warn("잘못된 path 데이터:", objectData.path);
           }
           break;
         default:
-          console.warn("Unsupported object type:", objectData.type);
+          console.warn("지원되지 않는 객체 유형:", objectData.type);
       }
-
-      // if (object && objectData.type !== 'path' && objectData.type !== 'rect') {
-      //   canvas.add(object);
-      //   canvas.renderAll();
-      // }
     } catch (error) {
-      console.error("Error applying remote edit:", error);
-    }
+      console.error("applying remote edit 적용 중 오류 발생:", error);
+    } 
   };
 
   return (
