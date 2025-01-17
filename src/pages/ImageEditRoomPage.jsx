@@ -29,6 +29,8 @@ const ImageEditRoomPage = () => {
 
   const [drawings, setDrawings] = useState([]); // [ 추가/작성자:YSM ] drawings 상태와 setDrawings 함수 선언
 
+  let oldWidth = null; // [ 추가/작성자:YSM ] 선택된 객체의 기존 width 값을 저장할 변수
+
   useEffect(function initTuiInstance() {
     const editor = new ImageEditor(containerRef.current, {
       includeUI: {
@@ -92,10 +94,11 @@ const ImageEditRoomPage = () => {
           });
 
           // [ 수정/작성자:YSM ] 2. 실시간 데이터 구독
-          client.subscribe(`/topic/room/${roomId}`, (message) => {
+          // [ 수정/작성자:YSM ] convertAndSendToUser 사용으로 인해 topic에서 queue로 구독 경로로 변경
+          client.subscribe(`/user/queue/room/${roomId}`, (message) => {
             try{
               const data = JSON.parse(message.body);
-              console.log(`[WebSocket 경로: /topic/room/${roomId}] 실시간 데이터 수신`);
+              console.log(`[WebSocket 경로: /user/queue/room/${roomId}]로 실시간 데이터 수신`, data);
 
               isRemoteChangeRef.current = true;
 
@@ -118,7 +121,33 @@ const ImageEditRoomPage = () => {
             }
           });
 
-          // [ 추가/작성자:YSM ] 3. 방 참여 요청
+          // [ 추가/작성자:YSM ] 3. 실시간 수정 데이터 구독
+          client.subscribe(`/user/queue/update/room/${roomId}`,(message) => {
+            try {
+              const data = JSON.parse(message.body);
+              console.log(`[/user/queue//update/room/${roomId}] 수정 데이터 수신:`,data);
+
+              setDrawings(data); // [ 추가/작성자:YSM ] drawings 상태 업데이트
+              
+              isRemoteChangeRef.current = true; // [ 추가/작성자:YSM ] 다른 사용자가 그린 그림이나 서버에서 업데이트된 데이터를 반영 중
+              
+              // [ 추가/작성자:YSM ] 에디터 화면 초기화
+              if (editorRef.current) {
+                editorRef.current.clearObjects();
+              }
+
+              // [ 수정/작성자:YSM ] data 배열의 각 항목을 순회하며 원격에서 받은 각 그림 데이터를 화면에 적용
+              data.forEach((drawing) => {
+                applyRemoteEdit(drawing);
+              });
+
+              isRemoteChangeRef.current = false;
+            }catch (error) {
+              console.error(`[WebSocket 경로: /user/queue/update/room/${roomId}] JSON 파싱 실패 : `, error)
+            }
+          });
+
+          // [ 추가/작성자:YSM ] 4. 방 참여 요청
           client.send(`/app/room/${roomId}/join`);
           console.log(`[WebSocket 경로: /topic/room/${roomId}] 방 참여 요청 전송`);
         }, (error) => {
@@ -141,30 +170,71 @@ const ImageEditRoomPage = () => {
     console.log("현재 drawings 상태:", drawings); 
   }, [drawings]);
 
+  let isAdding = false; // [ 추가/작성자:YSM ] 객체 추가 상태
+  let isSelecting = false; // [ 추가/작성자:YSM ] 객체 선택 상태
+
   // [ 설명/작성자:YSM ] 이벤트 등록
   useEffect(() => {
     if (connected && editorInstance) {
       const canvas = editorInstance._graphics.getCanvas();
 
       const onObjectAdded = (event) => {
+        if (isSelecting) return; // [ 추가/작성자:YSM ] 선택 중이라면 추가 이벤트 처리 안함
+
+        isAdding = true;
         console.log("onObjectAdded 이벤트 발생");
+
         if (!isRemoteChangeRef.current && event.target.type === 'path') {
           handleObjectEvent(event, 'objectAdded');
         } else {
           console.log('onObjectAdded 이벤트 무시 - isRemoteChangeRef 조건 불만족 또는 type이 path가 아님');
         }
+
+        isAdding = false; // [ 추가/작성자:YSM ] 추가 처리 후, 상태를 비움
       };
 
-      // [ 설명/작성자:YSM ] canvas에 이벤트 리스너와 핸들러 등록
-      canvas.on("object:added", onObjectAdded);
+      // [ 추가/작성자:YSM ] 객체 선택 이벤트 핸들러
+      const onObjectSelected = (event) => {
+        if (isAdding) return; // 추가 중이라면 선택 이벤트 처리 안함
+        
+        isSelecting = true;
+        console.log("onObjectSelected 이벤트 발생");
+  
+        if (event.target !== null) {
+          console.log('클릭된 객체:', event.target);
+
+          oldWidth = event.target.width; // 기존 Width 값
+          console.log("기존 Width 값:", oldWidth);
+        } else {
+          console.error('클릭된 객체가 없습니다.');
+        }
+
+        isSelecting = false;  // 선택 처리 후, 상태를 비움
+      }
+
+      // [ 추가/작성자:YSM ] 객체 수정 이벤트 핸들러
+      const onObjectModified = (event) => {
+        console.log("onObjectModified 이벤트 발생");
+        if (!isRemoteChangeRef.current && event.target.type === 'path') {
+          handleObjectEvent(event, 'objectModified');
+        } else {
+          console.log('onObjectModified 이벤트 무시 - isRemoteChangeRef 조건 불만족 또는 type이 path가 아님');
+        }
+      }
+      
+      canvas.on('object:added', onObjectAdded);
+      canvas.on('mouse:down', onObjectSelected); // [ 추가/작성자:YSM ] 객체 선택 시 처리하는 캔버스 이벤트 리스너 등록
+      canvas.on('object:modified', onObjectModified);  // [ 추가/작성자:YSM ] 객체 수정정 시 처리하는 캔버스 이벤트 리스너 등록
 
       return () => {
-        canvas.off("object:added", onObjectAdded); // [ 설명/작성자:YSM ] "object:added" 이벤트에 대해 등록된 onObjectAdded 함수 리스너를 제거
+        canvas.on('object:added', onObjectAdded);
+        canvas.on('mouse:down', onObjectSelected); 
+        canvas.on('obejct:modified', onObjectModified);
       };
     } else {
       console.log("connected가 false이거나 editorInstance가 존재하지 않음");
     }
-  }, [connected, editorInstance]); // [추가/작성자: YSM] connected나 editorInstance 상태가 변경될 때마다 실행
+  }, [connected, editorInstance]); // [ 추가/작성자:YSM ] connected나 editorInstance 상태가 변경될 때마다 실행
 
   // [ 설명/작성자:YSM ] 객체 이벤트 발생 시 WebSocket으로 전송
   const handleObjectEvent = (event, action) => {
@@ -225,8 +295,9 @@ const ImageEditRoomPage = () => {
         break;
 
       case 'objectModified':
+        console.log("객체 수정정 이벤트 처리 중...");
+
         objectData = {
-          clientId: object.clientId,
           type: object.type,
           left: object.left,
           top: object.top,
@@ -249,6 +320,8 @@ const ImageEditRoomPage = () => {
           lineCoords: object.lineCoords,
           path: object.type === 'path' ? object.toSVG() : null,
         };
+
+        console.log('객체 수정 데이터:', removeNullValues(objectData));
         break;
     
       default:
@@ -256,22 +329,33 @@ const ImageEditRoomPage = () => {
         return; 
     }
 
-    sendEdit(action, removeNullValues(objectData));
+    sendEdit(action, removeNullValues(objectData), oldWidth); // [ 수정/작성자:YSM ] 이전 너비 값(oldWidth) 전달
   };
 
   // [ 설명/작성자:YSM ] 편집 작업을 서버로 전송
-  const sendEdit = (action, payload) => {
+  const sendEdit = (action, payload, oldWidth) => {
     if (!stompClient || !connected || !action || !payload) {
       console.warn('stompClient가 없거나 연결되지 않은 경우, action 또는 payload가 없음');
       return;
     }
 
     try {
-      stompClient.send(`/app/room/${roomId}/draw`, {}, JSON.stringify({
-        action,
-        objects: [payload],
-      }));
-      console.log("sendEdit 작업 전송:", action, "Payload:", payload);
+      // [ 수정/작성자:YSM ] action이 objectAdded일 경우
+      if (action === 'objectAdded') {
+        stompClient.send(`/app/room/${roomId}/draw`, {}, JSON.stringify({
+          action,
+          objects: [payload],
+        }));
+        console.log("sendEdit 작업 전송:", action, "Payload:", payload);
+      } 
+      // [ 추가/작성자:YSM ]action이 objectModified일 경우
+      else if (action === 'objectModified') {
+        stompClient.send(`/app/room/${roomId}/update`, 
+        { oldWidth: oldWidth },  // oldWidth를 헤더로 추가
+        JSON.stringify({ action, objects: [payload] })
+      );
+        console.log("sendEdit 작업 전송: objectModified", " Payload: ", payload, " oldWidth: ", oldWidth);
+      }
     } catch (error) {
       console.error("sendEdit 작업 전송 중 오류 발생:", error);
     }
@@ -282,13 +366,13 @@ const ImageEditRoomPage = () => {
     const editor = editorRef.current;
 
     if (!editor || !editor._graphics) {
-      console.error(" editor 또는 _graphics가 없음음");
+      console.error(" editor 또는 _graphics가 없음");
       return;
     }
 
     const canvas = editor._graphics.getCanvas();
 
-    // [ 수정/작성자:YS M] 데이터 구조 분해 및 기본값 설정 로직 추가
+    // [ 수정/작성자:YSM ] 데이터 구조 분해 및 기본값 설정 로직 추가
     const { action, objects = data.object || [] } = data;
 
     if (!Array.isArray(objects) || objects.length === 0) {
@@ -353,7 +437,6 @@ const ImageEditRoomPage = () => {
           setIsSaveModalOpen={setIsSaveModalOpen}
           setIsLoadModalOpen={setIsLoadModalOpen}
           editor={editorInstance}
-          roomId={roomId} // [수정] roomId를 Header 컴포넌트에 전달 - 작성자 : YSM
         />
       </div>
       <div className="flex flex-grow p-4 space-x-4">
@@ -364,7 +447,7 @@ const ImageEditRoomPage = () => {
         isSaveModalOpen &&
         <Modal
           text="저장하기"
-          onClose={() => setIsSaveModalOpen(false)} // 모달 닫기
+          onClose={() => setIsSaveModalOpen(false)}
         />
       }
 
@@ -372,11 +455,9 @@ const ImageEditRoomPage = () => {
         isLoadModalOpen &&
         <Modal
           text="가져오기"
-          onClose={() => setIsLoadModalOpen(false)} // 모달 닫기
+          onClose={() => setIsLoadModalOpen(false)}
         />
       }
-      {/*<button className="text-white" onClick={() => sendEdit('김채윤','입니다.')}>저장</button>*/}
-      {/*<button className="text-white" onClick={sendToInstance}>그리기</button>*/}
     </div>
   );
 };
