@@ -125,7 +125,7 @@ const ImageEditRoomPage = () => {
           client.subscribe(`/user/queue/update/room/${roomId}`,(message) => {
             try {
               const data = JSON.parse(message.body);
-              console.log(`[/user/queue//update/room/${roomId}] 수정 데이터 수신:`,data);
+              console.log(`[/user/queue/update/room/${roomId}] 수정 데이터 수신:`,data);
 
               setDrawings(data); // [ 추가/작성자:YSM ] drawings 상태 업데이트
               
@@ -147,7 +147,31 @@ const ImageEditRoomPage = () => {
             }
           });
 
-          // [ 추가/작성자:YSM ] 4. 방 참여 요청
+          // [ 추가/작성자:YSM ]
+          client.subscribe(`/user/queue/delete/room/${roomId}`,(message) => {
+            try {
+              const data = JSON.parse(message.body);
+              console.log(`[/user/queue/delete/room/${roomId}] 수정 데이터 수신:`,data);
+
+              setDrawings(data); 
+              
+              isRemoteChangeRef.current = true; 
+              
+              if (editorRef.current) {
+                editorRef.current.clearObjects();
+              }
+
+              data.forEach((drawing) => {
+                applyRemoteEdit(drawing);
+              });
+
+              isRemoteChangeRef.current = false;
+            }catch (error) {
+              console.error(`[WebSocket 경로: /user/queue/delete/room/${roomId}] JSON 파싱 실패 : `, error)
+            }
+          });
+
+          // [ 추가/작성자:YSM ] 5. 방 참여 요청
           client.send(`/app/room/${roomId}/join`);
           console.log(`[WebSocket 경로: /topic/room/${roomId}] 방 참여 요청 전송`);
         }, (error) => {
@@ -221,15 +245,27 @@ const ImageEditRoomPage = () => {
           console.log('onObjectModified 이벤트 무시 - isRemoteChangeRef 조건 불만족 또는 type이 path가 아님');
         }
       }
+
+      // [ 추가/작성자:YSM ]
+      const onObjectRemoved = (event) => {
+        if (!isRemoteChangeRef.current && event.target.type === 'path') {
+          console.log("onObjectRemoved 이벤트 발생");
+          handleObjectEvent(event, 'objectRemoved');
+        } else {
+          console.log('onObjectRemoved 이벤트 무시 - isRemoteChangeRef 조건 불만족 또는 type이 path가 아님');
+        }
+      }
       
       canvas.on('object:added', onObjectAdded);
       canvas.on('mouse:down', onObjectSelected); // [ 추가/작성자:YSM ] 객체 선택 시 처리하는 캔버스 이벤트 리스너 등록
       canvas.on('object:modified', onObjectModified);  // [ 추가/작성자:YSM ] 객체 수정정 시 처리하는 캔버스 이벤트 리스너 등록
+      canvas.on('object:removed', onObjectRemoved); // 1/18
 
       return () => {
         canvas.on('object:added', onObjectAdded);
         canvas.on('mouse:down', onObjectSelected); 
         canvas.on('obejct:modified', onObjectModified);
+        canvas.on('object:removed', onObjectRemoved); // 1/18
       };
     } else {
       console.log("connected가 false이거나 editorInstance가 존재하지 않음");
@@ -244,7 +280,7 @@ const ImageEditRoomPage = () => {
     }
 
     const object = event.target || event.deselected[0];
-    console.log('현재 object 정보', object);
+    // console.log('현재 object 정보', object);
 
     if (!object || !object.type) {
       console.warn("유효하지 않은 object 또는 type이 undefined");
@@ -295,7 +331,7 @@ const ImageEditRoomPage = () => {
         break;
 
       case 'objectModified':
-        console.log("객체 수정정 이벤트 처리 중...");
+        console.log("객체 수정 이벤트 처리 중...");
 
         objectData = {
           type: object.type,
@@ -322,6 +358,35 @@ const ImageEditRoomPage = () => {
         };
 
         console.log('객체 수정 데이터:', removeNullValues(objectData));
+        break;
+      
+      case 'objectRemoved':
+        console.log("객체 삭제 이벤트 처리 중...");
+
+        objectData = {
+          type: object.type,
+          left: object.left,
+          top: object.top,
+          width: object.width,
+          height: object.height,
+          fill: object.fill,
+          stroke: object.stroke,
+          strokeWidth: object.strokeWidth,
+          angle: object.angle,
+          scaleX: object.scaleX,
+          scaleY: object.scaleY,
+          text: object.text,
+          fontSize: object.fontSize,
+          fontWeight: object.fontWeight,
+          fontStyle: object.fontStyle,
+          textDecoration: object.textDecoration,
+          rx: object.rx,
+          ry: object.ry,
+          pathOffset: object.pathOffset,
+          lineCoords: object.lineCoords,
+          path: object.type === 'path' ? object.toSVG() : null,
+        };
+        console.log('객체 삭제 데이터:', removeNullValues(objectData));
         break;
     
       default:
@@ -355,6 +420,14 @@ const ImageEditRoomPage = () => {
         JSON.stringify({ action, objects: [payload] })
       );
         console.log("sendEdit 작업 전송: objectModified", " Payload: ", payload, " oldWidth: ", oldWidth);
+      }
+      // 1/18
+      else if (action === 'objectRemoved') {
+        stompClient.send(`/app/room/${roomId}/delete`, 
+          { oldWidth: oldWidth },  // oldWidth를 헤더로 추가
+          JSON.stringify({ action, objects: [payload] })
+        );
+        console.log("sendEdit 작업 전송: objectRemoved", " Payload: ", payload, " oldWidth: ", oldWidth);
       }
     } catch (error) {
       console.error("sendEdit 작업 전송 중 오류 발생:", error);
