@@ -43,17 +43,17 @@ const Login = () => {
     <div className="bg-[#1B1D20] h-screen flex flex-col items-center">
       <Header />
       <main className="m-t-center flex flex-col justify-center items-center w-[40%] h-[45%]">
-        <h2 className="font-[700] text-[2rem] text-white mb-[10px]">Log in</h2>
+        <h2 className="font-[700] text-[2rem] text-white mb-[10px]">Login</h2>
 
         <div className="w-full">
           <label className="text-[#B8B8B8] text-[1rem] leading-[29px] mb-2">아이디 또는 이메일</label>
           <input
             type="text"
-            placeholder="ID를 입력하세요"
+            // placeholder="아이디 또는 이메일을 입력하세요" // [ 수정/작성자:YSM ] 플레이스홀더 주석 처리
             name="id"
             value={userInfo?.id ?? ''}
             onChange={(e) => saveUserInfo(e)}
-            className={`bg-[#313131] w-full h-[4rem] mb-5 p-2`}
+            className={`bg-[#313131] w-full h-[4rem] mb-5 p-2 text-white`} // [ 수정/작성자:YSM ] 텍스트 색상을 흰색으로 변경
           />
         </div>
         <div className="w-full">
@@ -61,10 +61,10 @@ const Login = () => {
           <input
             name="password"
             type="text"
-            placeholder="PW를 입력하세요"
+            // placeholder="PW를 입력하세요" // [ 수정/작성자:YSM ] 플레이스홀더 주석 처리
             value={userInfo?.password ?? ''}
             onChange={(e) => saveUserInfo(e)}
-            className={`bg-[#313131] w-full h-[4rem] p-2`}
+            className={`bg-[#313131] w-full h-[4rem] p-2 text-white`} // [ 수정/작성자:YSM ] 텍스트 색상을 흰색으로 변경
           />
         </div>
 
