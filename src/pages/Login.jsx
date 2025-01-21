@@ -3,14 +3,29 @@ import { useNavigate } from 'react-router-dom';
 import useUserInfo from '../hooks/useUserInfo.jsx';
 import axios from 'axios';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { useState } from 'react'; // [ 추가/작성자:YSM ]
 
 const Login = () => {
   // 컴포넌트, 리액트 쿼리로부터 data를 받아 렌더링. data가 있으면 id를 꺼내와서 oo님 반갑습니다. alert 화면 띄우기.
   const nav = useNavigate();
   const [userInfo, saveUserInfo, resetUserInfo] = useUserInfo();
   const {login} = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false); // [ 추가/작성자:YSM ] 모달 열림 여부
+  const [modalMessage, setModalMessage] = useState(""); // [ 추가/작성자:YSM ] 모달에 표시될 메시지
 
   const handleLogin = async () => {
+    if (!userInfo.id) {
+      setModalMessage("아이디를 입력해주세요.");
+      setIsModalOpen(true);
+      return;
+    }
+  
+    if (!userInfo.password) {
+      setModalMessage("비밀번호를 입력해주세요.");
+      setIsModalOpen(true);
+      return;
+    }
+
     try {
       const response = await axios.post('http://localhost:8080/v1/login', { email: userInfo.id, password: userInfo.password }, {withCredentials:true});
       const authHeader = response.headers['authorization'];
@@ -38,6 +53,29 @@ const Login = () => {
       alert("로그인 실패");
     }
   };
+
+    // [ 추가/작성자:YSM ] 모달 닫기 함수
+    const closeModal = () => {
+      setIsModalOpen(false);
+    };
+  
+    // [ 추가/작성자:YSM ] 모달 컴포넌트
+    const Modal = ({ message, onClose }) => {
+      return (
+        <div className="fixed top-0 left-0 w-full h-full flex items-center justify-center bg-gray-800 bg-opacity-50 z-50">
+          <div className="bg-[#1F2937] rounded-lg shadow-lg w-[480px] h-[240px] p-6 flex flex-col justify-between">
+            <h2 className="text-2xl text-blue-200 mb-4 text-center">알림</h2>
+            <p className="text-white text-lg text-center mb-6">{message}</p>
+            <button
+              onClick={onClose}
+              className="w-1/3 mx-auto py-2 px-4 text-white border border-white rounded hover:bg-gray-700 focus:outline-none transition duration-300"
+            >
+            확인
+            </button>
+          </div>
+        </div>
+      );
+    };
 
   return(
     <div className="bg-[#1B1D20] h-screen flex flex-col items-center">
@@ -80,6 +118,8 @@ const Login = () => {
         >
           회원가입
         </button>
+        {/* [ 추가/작성자:YSM ] 모달 렌더링 */}
+        {isModalOpen && <Modal message={modalMessage} onClose={closeModal} />}
       </main>
     </div>
   )
