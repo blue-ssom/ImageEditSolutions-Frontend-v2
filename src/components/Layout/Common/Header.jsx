@@ -7,15 +7,16 @@ export default function Header() {
   return (
     <header
       className="w-full h-[136px] bg-black flex items-center justify-between px-8"
-      style={{padding:"0 15%"}} // 임시 수정.
+      style={{ padding: "0 200px" }} // [ 수정정/작성자:YSM ] px 단위로 고정
     >
+
       {/* 로고와 텍스트 부분 */}
       <div className="flex items-center gap-2 cursor-pointer" onClick={() => nav('/')}>
           <img src={LogoImage} alt="Logo" className="h-10" />
           <span className="text-white text-2xl font-bold">PicShare</span>
       </div>
 
-      <nav className="flex items-center gap-8 text-white">
+      <nav className="flex items-center gap-10 text-white">
         <a href="#소개" className="hover:text-gray-400">
           소개
         </a>
