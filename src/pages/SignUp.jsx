@@ -59,7 +59,7 @@ const SignUp = () => {
   const handleCheckEmail = async () => {
     try {
       if (!userInfo.id) {
-        setMessage("이메일을 입력해주세요.");
+        setMessage("아이디 또는 이메일을 입력해주세요.");
         setIsError(true); // 에러 상태로 설정
         return;
       }
