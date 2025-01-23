@@ -10,9 +10,13 @@ const MakeRoomContainer = () => {
   const [roomNumber, setRoomNumber] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false); // [ 추가/작성자:YSM ] 모달 열림 여부
   const [modalMessage, setModalMessage] = useState(""); // [ 추가/작성자:YSM ] 모달에 표시될 메시지
+  const [isError, setIsError] = useState(false); // [ 추가/작성자:YSM ] 에러 여부
+  const [activeButton, setActiveButton] = useState(null); // [ 추가/작성자:YSM ] 버튼 클릭 상태
 
+  // 방 만들기 함수
   const handleCreateRoom = async () => {
     setIsOpenJoinRoom(false);
+    setActiveButton("createRoom");
 
     const authToken = localStorage.getItem('accessToken');
 
@@ -23,24 +27,27 @@ const MakeRoomContainer = () => {
       return;
     }
 
+    // [ 추가/작성자:YSM ]
+    setModalMessage("방이 생성되었습니다.");
+    setIsError(true); 
+    setIsModalOpen(true);
+
     const newRoomId = await createRoom();
 
   };
 
-  const handleClickCopyLink = () => {
-    navigator.clipboard
-      .writeText(roomId)
-      .then(() => {
-        alert("방 번호가 복사되었습니다! 🎉");
-      })
-      .catch((err) => {
-        console.error("복사 실패:", err);
-        alert("복사에 실패했습니다. 😢");
-      });
-  }
+  // 방 입장하기 함수
   const handleJoinRoom = () => {
-    if (roomId) {
-      nav(`/image-edit/room/${roomId}`);
+    // if (roomId) {
+    //   nav(`/image-edit/room/${roomId}`);
+    //   return;
+    // }
+    const authToken = localStorage.getItem('accessToken');
+
+    // [ 수정/작성자:YSM ]
+    if(!authToken) {
+      setModalMessage("로그인이 필요합니다.");
+      setIsModalOpen(true);
       return;
     }
 
@@ -49,17 +56,51 @@ const MakeRoomContainer = () => {
         joinRoom(roomNumber);
         nav(`/image-edit/room/${roomNumber}`);
       } else {
-        alert("방 ID를 입력해주세요.");
+      // alert("방 ID를 입력해주세요.");
+      // [ 추가/작성자:YSM ]
+      setModalMessage("방 아이디를 입력해주세요.");
+      setIsError(true); 
+      setIsModalOpen(true);
+      return;
       }
     } else {
       setIsOpenJoinRoom(true);
     }
   }
 
+  const handleClickCopyLink = () => {
+    // [ 수정/작성자:YSM ]
+    if (!roomId) {
+      setModalMessage("방을 먼저 만들어 주세요.");
+      setIsError(true);
+      setIsModalOpen(true);
+      return;
+    }
+
+    navigator.clipboard
+      .writeText(roomId)
+      .then(() => {
+      // alert("방 번호가 복사되었습니다! 🎉");
+      // [ 수정/작성자:YSM ]
+        setModalMessage("방 아이디가 복사되었습니다.");
+        setIsError(true); 
+        setIsModalOpen(true);
+      })
+      .catch((err) => {
+        console.error("복사 실패:", err);
+        // alert("복사에 실패했습니다. 😢");
+        // [ 수정/작성자:YSM ]
+        setModalMessage("방 아이디 복사에 실패했습니다.");
+        setIsError(true); 
+        setIsModalOpen(true);
+      });
+  }
+
   // [ 추가/작성자:YSM ] 모달 닫기 함수
   const closeModal = () => {
     setIsModalOpen(false);
-    nav('/login');
+    if(!isError) nav('/login');
+    setIsError(false); // 상태 초기화
   };
 
   // [ 추가/작성자:YSM ] 모달 컴포넌트
@@ -88,31 +129,32 @@ const MakeRoomContainer = () => {
         <div
           className={`w-80 h-14 rounded-lg flex items-center justify-between pr-2 box-border bg-gray-800 overflow-hidden`}
         >
+          {/* [ 수정/작성자:YSM ] */}
           {
             isOpenJoinRoom ?
               <div
                 className={`w-80 h-14 rounded-lg flex items-center justify-between box-border bg-gray-800 overflow-hidden`}
               >
-                  <textarea
-                    className="leading-[3.5rem] bg-gray-800 h-14 flex-1 outline-0 text-[10px] pl-2"
-                    placeholder="방 번호를 입력하세요"
-                    onChange={(e) => setRoomNumber(e.target.value)}
-                  />
-                <button
+                <input
+                  className="leading-[3.5rem] bg-gray-800 h-14 flex-1 outline-0 text-[13px] pl-2"
+                  placeholder="방 아이디를 입력하세요"
+                  onChange={(e) => setRoomNumber(e.target.value)}
+                />
+                {/* <button
                   className="text-[#1B1D20] text-[8px] bg-[#9DD6E9] p-2 rounded-[6px] flex flex-row items-center box-border"
                   onClick={handleJoinRoom}
                 >
                   <img src="/images/home/create-room.svg" alt="create-room.svg" className="w-[13px] h-[13px]" />
-                </button>
+                </button> */}
               </div> :
               <>
-                <div className="text-[12px] ml-3">{roomId}</div>
+                <div className="text-[13px] pl-2">{roomId}</div>
                 <button
                   onClick={handleClickCopyLink}
-                  className="text-[#1B1D20] text-[8px] bg-[#9DD6E9] p-2 rounded-[6px] flex flex-row items-center  h-5 box-border">
+                  className="text-[#1B1D20] text-[11px] bg-[#9DD6E9] p-2 rounded-[6px] flex flex-row items-center box-border gap-2">
                   공유하기
-                  <img src="/images/home/create-room.svg" alt="create-room.svg" className="w-[8px] ml-1" />
-                </button>
+                  <img src="/images/home/create-room.svg" alt="create-room.svg" className="w-[16px] h-[16px]" />
+                  </button>
               </>
           }
         </div>
