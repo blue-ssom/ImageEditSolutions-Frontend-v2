@@ -25,15 +25,17 @@ export const AuthProvider = ({ children }) => {
       await axiosInstance.post('/logout',{},{
         headers: {
           'Authorization': `Bearer ${authToken}`,
-          'Authorization-refresh': `Bearer ${authToken}`,
+          // 'Authorization-refresh': `Bearer ${authToken}`, // [ 수정/작성자:YSM ]
           'Content-Type' : 'application/json'
         },
         withCredentials:true,
       });
-      setAuthToken(null);
+      localStorage.removeItem('accessToken'); // [ 추가/작성자:YSM ]
       localStorage.removeItem('authToken');
-      alert("로그아웃 되었습니다.");
-      window.location.replace('http://localhost:3000/');
+      setAuthToken(null);
+
+      // alert("로그아웃 되었습니다.");
+      window.location.replace('http://localhost:5173/'); // [ 수정/작성자:YSM ]
     } catch (error) {
       console.error("로그아웃 실패", error);
       alert("로그아웃에 실패했습니다.");
