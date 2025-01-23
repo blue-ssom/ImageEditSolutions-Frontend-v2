@@ -1,13 +1,13 @@
 export default function Footer() {
     return (
-      <footer className="bg-gray-800 text-gray-400 py-10">
-        <div className="max-w-7xl mx-auto grid grid-cols-3 gap-6">
+      <footer className="bg-gray-800 text-gray-400 py-6">
+        <div className="container mx-auto flex justify-between">
           {/* 회사 정보 */}
           <div>
-            <p>상호: 모바일 앱개발 협동조합 | 대표자명: 최원석</p>
+            <p>상호: 모바일 앱개발 협동조합 | 대표자명: 최원서</p>
             <p>사업자 등록번호: 000-00-00000</p>
             <p>연락처: 000-000-0000 | 팩스: 000-0000-0000 | 이메일: abxde@gmail.com</p>
-            <p>주소: 서울특별시 노원구 컬처스퀘어</p>
+            <p>주소: 서울특별시 노원구 연지스퀘어</p>
             <hr className="my-2 border-gray-600" />
             <p>Copyright ⓒ 모바일 앱개발 협동조합</p>
           </div>
@@ -57,8 +57,11 @@ export default function Footer() {
                 </a>
               </li>
             </ul>
-            <div className="mt-4">
-              <ul className="flex space-x-4">
+          </div>
+
+          {/* SNS */}
+          <div>
+              <ul>
                 <li>
                   <a href="#" className="hover:text-white">
                     Facebook
@@ -76,7 +79,6 @@ export default function Footer() {
                 </li>
               </ul>
             </div>
-          </div>
         </div>
       </footer>
     );
